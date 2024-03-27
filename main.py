@@ -5,7 +5,8 @@ from logging.config import dictConfig
 import logging as logger
 import json
 import logging as logger
-# from flask_socketio import SocketIO
+from flask_cors import CORS, cross_origin
+
 from queue import LifoQueue, Queue
 from flask import render_template
 from flask_socketio import SocketIO, emit
@@ -15,6 +16,7 @@ from flask import Flask, render_template, session, request, \
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import logging as logger
+
 
 import random
 
@@ -44,29 +46,24 @@ dictConfig(
 async_mode = "threading"
 
 app = Flask(__name__)
+
 app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode=async_mode)
+socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
+
+
 thread = None
 thread_lock = Lock()
 queue = Queue(maxsize=0)
 import time
-
-def create_dummy_data():
-    return {"temp": "{:4.2f}".format(random.uniform(0.0, 30.0)),
-     "pressure": "{:4.2f}".format(random.uniform(100.0, 3000.0)),
-     "depth": "{:4.2f}".format(random.uniform(0.0, 3.0)),
-     "environment_dist": "{:4.2f}".format(random.uniform(0.0, 3.0)),
-     "gps": "{:10.8f}, {:10.8f}".format(random.uniform(0.0, 90), random.uniform(0.0, 90)),
-     "ts" : time.time()
-     }
-
+lng = 48.12804085254037
+lat =  11.579819953236333
 def create_dummy_data_d():
     return {"temp": random.uniform(0.0, 30.0),
      "pressure": "{:4.2f}".format(random.uniform(100.0, 3000.0)),
      "depth": "{:4.2f}".format(random.uniform(0.0, 3.0)),
      "env_dist": "{:4.2f}".format(random.uniform(0.0, 3.0)),
-     "gps": "{:10.8f}, {:10.8f}".format(random.uniform(0.0, 90), random.uniform(0.0, 90)),
-     "ts" : time.time()
+     "gps": "{:.15f}, {:.15f}".format(lat + random.uniform(1e-4, 1e-7), lng + random.uniform(1e-4, 1e-7)),
+     "ts" : int(time.time())
      }
 
 def background_thread():
@@ -74,16 +71,16 @@ def background_thread():
     count = 0
     logger.info("bg started")
     while True:
-        count += 1
-        # socketio.emit('sensor-data',
-        #               create_dummy_data_d())
-        while queue.qsize() > 0:  
-            logger.info(queue.qsize())
-            socketio.emit('sensor-data',
-                    {**queue.get(), 'count': count})
-            socketio.sleep(0.1)
-        
-
+        # count += 1
+        socketio.emit('sensor-data',
+                      create_dummy_data_d())
+        socketio.sleep(1)
+        # while queue.qsize() > 0:  
+        #     logger.info(queue.qsize())
+        #     socketio.emit('sensor-data',
+        #             {**queue.get(), 'count': count})
+        #     socketio.sleep(0.1)
+            
 
 
 @app.before_request
