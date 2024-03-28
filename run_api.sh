@@ -11,7 +11,8 @@ if [ -f api.pid ];then
 else
   # source ~/.bashrc    # <- !!!
   # conda activate $env_name
+  source .venv/bin/activate
 	echo "running $scriptname"
-	nohup python main.py > api.log 2>&1 & echo $! > api.pid 
+	nohup python3 main.py > api.log 2>&1 & echo $! > api.pid 
   sleep 2
 fi

@@ -7,11 +7,9 @@ import json
 import logging as logger
 
 from queue import Queue
-from flask import render_template
 from flask_socketio import SocketIO, emit
 from threading import Lock
-from flask import Flask, render_template, session, request, \
-    copy_current_request_context
+
 from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import logging as logger
@@ -62,11 +60,15 @@ lng = 48.12804085254037
 lat =  11.579819953236333
 
 def create_dummy_data_d():
-    return {"temp": random.uniform(0.0, 30.0),
-     "pressure": "{:4.2f}".format(random.uniform(100.0, 3000.0)),
-     "depth": "{:4.2f}".format(random.uniform(0.0, 3.0)),
-     "env_dist": "{:4.2f}".format(random.uniform(0.0, 3.0)),
+    alt_d = random.gauss(-0.5, 0.1)
+    return {
+    "temp": random.gauss(10, 0.5),
+     "pressure": "{:4.2f}".format(random.gauss(900, 50.0)),
+     "depth": "{:4.2f}".format(alt_d),
+     "alt": "{:4.2f}".format(523 + alt_d),
      "gps": "{:.15f}, {:.15f}".format(lat + random.uniform(1e-4, 1e-7), lng + random.uniform(1e-4, 1e-7)),
+     "v1": "{:.2f}".format(random.gauss(4, 0.5)),
+     "v2": "{:.2f}".format(random.gauss(4, 0.7)),
      "ts" : int(time.time())
      }
 
@@ -102,12 +104,6 @@ def before_req():
 def get_current_time():
     return {'time': time.time()}
 
-@socketio.event
-def my_broadcast_event(data):
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    emit('re', **data,
-         broadcast=True)
-
 # @socketio.event
 # def join(message):
 #     join_room(message['room'])
@@ -131,20 +127,6 @@ def my_broadcast_event(data):
 #          {'data': message['data'], 'count': session['receive_count']},
 #          to=message['room'])
     
-
-@socketio.event
-def disconnect_request():
-    @copy_current_request_context
-    def can_disconnect():
-        disconnect()
-
-    session['receive_count'] = session.get('receive_count', 0) + 1
-    # for this emit we use a callback function
-    # when the callback function is invoked we know that the message has been
-    # received and it is safe to disconnect
-    emit('my_response',
-         {'data': 'Disconnected!', 'count': session['receive_count']},
-         callback=can_disconnect)
 
 
 @socketio.event
@@ -179,11 +161,6 @@ def user():
         logger.info(queue.qsize())
         return {"success" : "true"}
 
-        
-
-# @app.route('/', methods = ['GET'])
-# def index():
-#     return render_template('index.html')
    
 
     
