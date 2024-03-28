@@ -5,9 +5,8 @@ from logging.config import dictConfig
 import logging as logger
 import json
 import logging as logger
-from flask_cors import CORS, cross_origin
 
-from queue import LifoQueue, Queue
+from queue import Queue
 from flask import render_template
 from flask_socketio import SocketIO, emit
 from threading import Lock
@@ -17,8 +16,12 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, \
     close_room, rooms, disconnect
 import logging as logger
 
+import time
 
 import random
+
+
+
 
 dictConfig(
         {
@@ -54,9 +57,10 @@ socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 thread = None
 thread_lock = Lock()
 queue = Queue(maxsize=0)
-import time
+
 lng = 48.12804085254037
 lat =  11.579819953236333
+
 def create_dummy_data_d():
     return {"temp": random.uniform(0.0, 30.0),
      "pressure": "{:4.2f}".format(random.uniform(100.0, 3000.0)),
@@ -177,16 +181,12 @@ def user():
 
         
 
-@app.route('/', methods = ['GET'])
-def index():
-    return render_template('index.html')
+# @app.route('/', methods = ['GET'])
+# def index():
+#     return render_template('index.html')
    
 
     
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port = 5000)
-    # socketio = SocketIO(app)
-    # socketio.run(app,
-    #     host=app._conf.api.host,
-    #     port=app._conf.api.port,
