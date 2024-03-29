@@ -56,8 +56,8 @@ thread = None
 thread_lock = Lock()
 queue = Queue(maxsize=0)
 
-lng = 48.12804085254037
-lat =  11.579819953236333
+lng = 48.12800085254037
+lat = 11.57960005323633
 
 def create_dummy_data_d():
     alt_d = random.gauss(-0.5, 0.1)
@@ -66,7 +66,7 @@ def create_dummy_data_d():
      "pressure": "{:4.2f}".format(random.gauss(900, 50.0)),
      "depth": "{:4.2f}".format(alt_d),
      "alt": "{:4.2f}".format(523 + alt_d),
-     "gps": "{:.15f}, {:.15f}".format(lat + random.uniform(1e-4, 1e-7), lng + random.uniform(1e-4, 1e-7)),
+     "gps": "{:.15f}, {:.15f}".format(lat + 2*random.uniform(1e-4, 1e-7), lng + 2*random.uniform(1e-4, 1e-7)),
      "v1": "{:.2f}".format(random.gauss(4, 0.5)),
      "v2": "{:.2f}".format(random.gauss(4, 0.7)),
      "ts" : int(time.time())
@@ -78,14 +78,14 @@ def background_thread():
     logger.info("bg started")
     while True:
         # count += 1
-        socketio.emit('sensor-data',
-                      create_dummy_data_d())
-        socketio.sleep(1)
-        # while queue.qsize() > 0:  
-        #     logger.info(queue.qsize())
-        #     socketio.emit('sensor-data',
-        #             {**queue.get(), 'count': count})
-        #     socketio.sleep(0.1)
+        # socketio.emit('sensor-data',
+        #               create_dummy_data_d())
+        # socketio.sleep(1)
+        while queue.qsize() > 0:  
+            logger.info(queue.qsize())
+            socketio.emit('sensor-data',
+                    queue.get())
+            socketio.sleep(0.1)
             
 
 
@@ -152,13 +152,9 @@ def test_disconnect():
 def user():
     if request.method == 'GET':
         return {'time': time.time()}
-    if request.method == 'POST':
-        
-        data = request.json # a multidict containing POST data
-        
-        logger.info(request.json)
-        queue.put(data)
-        logger.info(queue.qsize())
+    if request.method == 'POST':                
+        queue.put(request.json)
+        logger.info("queue size: {}".format(queue.qsize()))
         return {"success" : "true"}
 
    
