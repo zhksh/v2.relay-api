@@ -1,3 +1,5 @@
+
+import os
 from flask import Flask
 from flask import request
 import time
@@ -17,7 +19,7 @@ import logging as logger
 import time
 
 import random
-
+from datetime import datetime
 
 
 
@@ -55,9 +57,11 @@ socketio = SocketIO(app, async_mode=async_mode, cors_allowed_origins="*")
 thread = None
 thread_lock = Lock()
 queue = Queue(maxsize=0)
+data = []
 
 lng = 48.12800085254037
 lat = 11.57960005323633
+start = time.time()
 
 def create_dummy_data_d():
     alt_d = random.gauss(-0.5, 0.1)
@@ -65,34 +69,38 @@ def create_dummy_data_d():
     "temp": random.gauss(10, 0.5),
      "pressure": "{:4.2f}".format(random.gauss(900, 50.0)),
      "depth": "{:4.2f}".format(alt_d),
-     "alt": "{:4.2f}".format(523 + alt_d),
+     "altitude": "{:4.2f}".format(523 + alt_d),
      "gps": "{:.15f}, {:.15f}".format(lat + 2*random.uniform(1e-4, 1e-7), lng + 2*random.uniform(1e-4, 1e-7)),
      "v1": "{:.2f}".format(random.gauss(4, 0.5)),
      "v2": "{:.2f}".format(random.gauss(4, 0.7)),
+     "online_time": time.time() -start,
      "ts" : int(time.time())
      }
+
+
+def make_save_name():
+    return datetime.now().strftime("%H_%M_%S_%d_%m_%Y")
+
 
 def background_thread():
     """Example of how to send server generated events to clients."""
     count = 0
     logger.info("bg started")
     while True:
-        # count += 1
-        # socketio.emit('sensor-data',
-        #               create_dummy_data_d())
-        # socketio.sleep(1)
-        while queue.qsize() > 0:  
-            logger.info(queue.qsize())
-            socketio.emit('sensor-data',
-                    queue.get())
-            socketio.sleep(0.1)
+        count += 1
+        socketio.emit('sensor-data',
+                      create_dummy_data_d())
+        socketio.sleep(1)
+        # while queue.qsize() > 0:  
+        #     logger.info(queue.qsize())
+        #     socketio.emit('sensor-data',
+        #             queue.get())
+        #     socketio.sleep(0.1)
             
-
 
 @app.before_request
 def before_req():
     # logger.debug(request.headers)
-
     if "X-Real-Ip" in request.headers:
         logger.info(request.headers["X-Real-Ip"])
     try:
@@ -100,38 +108,20 @@ def before_req():
     except:
         pass
 
+
+@socketio.on('persist')
+def save_current():
+    path = os.path.join("data/", make_save_name())
+    with open(path, 'w') as f:
+        json.dump(data, f)
+        data = []
+        emit('persisted', {'msg': "saved to: " + path })
+
+
 @app.route('/time')
 def get_current_time():
     return {'time': time.time()}
 
-# @socketio.event
-# def join(message):
-#     join_room(message['room'])
-#     session['receive_count'] = session.get('receive_count', 0) + 1
-#     emit('my_response',
-#          {'data': 'In rooms: ' + ', '.join(rooms()),
-#           'count': session['receive_count']})
-
-# @socketio.event
-# def join(message):
-#     join_room(message['room'])
-#     session['receive_count'] = session.get('receive_count', 0) + 1
-#     emit('my_response',
-#          {'data': 'In rooms: ' + ', '.join(rooms()),
-#           'count': session['receive_count']})
-
-# @socketio.event
-# def my_room_event(message):
-#     session['receive_count'] = session.get('receive_count', 0) + 1
-#     emit('my_response',
-#          {'data': message['data'], 'count': session['receive_count']},
-#          to=message['room'])
-    
-
-
-@socketio.event
-def my_ping():
-    emit('my_pong')
 
 
 @socketio.event
@@ -144,7 +134,7 @@ def connect():
 
 
 @socketio.on('disconnect')
-def test_disconnect():
+def disconnect():
     print('Client disconnected', request.sid)
 
 
@@ -155,7 +145,7 @@ def user():
     if request.method == 'POST':                
         queue.put(request.json)
         logger.info("queue size: {}".format(queue.qsize()))
-        return {"success" : "true"}
+        # return {"success" : "true"}
 
    
 
