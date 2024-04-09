@@ -7,6 +7,7 @@ from logging.config import dictConfig
 import logging as logger
 import json
 import logging as logger
+from pathlib import Path
 
 from queue import Queue
 from flask_socketio import SocketIO, emit
@@ -77,25 +78,27 @@ def create_dummy_data_d():
      "ts" : int(time.time())
      }
 
+broadcast = True
 
 def make_save_name():
-    return datetime.now().strftime("%H_%M_%S_%d_%m_%Y")
+    return datetime.now().strftime("%H_%M_%S_%d_%m_%Y") + '.json'
 
 
 def background_thread():
     """Example of how to send server generated events to clients."""
     count = 0
     logger.info("bg started")
-    while True:
-        count += 1
-        socketio.emit('sensor-data',
-                      create_dummy_data_d())
-        socketio.sleep(1)
-        # while queue.qsize() > 0:  
-        #     logger.info(queue.qsize())
-        #     socketio.emit('sensor-data',
-        #             queue.get())
-        #     socketio.sleep(0.1)
+    while broadcast:
+        # count += 1
+        # d = create_dummy_data_d()
+        # data.append(d)
+        # socketio.emit('sensor-data',d)
+        # socketio.sleep(1)
+        while queue.qsize() > 0:  
+            d =  queue.get()
+            data.append(d)
+            socketio.emit('sensor-data',d)
+            socketio.sleep(0.1)
             
 
 @app.before_request
@@ -111,18 +114,29 @@ def before_req():
 
 @socketio.on('persist')
 def save_current():
-    path = os.path.join("data/", make_save_name())
+    global data
+    filename = make_save_name()
+    path = os.path.join("data/", filename)
     with open(path, 'w') as f:
         json.dump(data, f)
         data = []
-        emit('persisted', {'msg': "saved to: " + path })
+        socketio.emit('persisted', {'new_session': filename.removesuffix('.json') })
+
 
 
 @app.route('/time')
 def get_current_time():
     return {'time': time.time()}
 
+@app.route('/api/sensor-sessions')
+def get_sessions():
+    session_names = [] 
 
+    for filename in os.listdir("data/"):
+       if filename.endswith(".json"):
+            session_names.append(filename.removesuffix('.json'))
+    logger.info(session_names)
+    return {'sessions' : session_names}
 
 @socketio.event
 def connect():
@@ -138,6 +152,20 @@ def disconnect():
     print('Client disconnected', request.sid)
 
 
+# @app.route('/api/request-sensor-session', methods = ['POST'])
+@socketio.on('request-sensor-session')
+def req_session(data):
+        global broadcast 
+        # broadcast = False
+        pl = json.loads(data)
+        logger.info(pl)
+        with open(os.path.join('data/', pl['session_name'] + '.json')) as f:
+            data = json.load(f)
+            logger.info(data)
+            for d in data:
+                socketio.emit('send-session', d)
+
+
 @app.route('/api/post-sensor-data', methods = ['GET', 'POST'])
 def user():
     if request.method == 'GET':
@@ -145,7 +173,6 @@ def user():
     if request.method == 'POST':                
         queue.put(request.json)
         logger.info("queue size: {}".format(queue.qsize()))
-        # return {"success" : "true"}
 
    
 
